@@ -2,6 +2,16 @@
 
 Log of non-trivial changes to this workspace, newest first.
 
+## 2026-09-18T21:25:08+02:00 — Enforce embedding dimensions at startup
+
+`initialize_state()` now reapplies the startup embedding-dimension configuration
+*after* loading database-persisted configuration overrides. This prevents a stale
+saved `1536`-dimension override from winning over `MEM0_EMBEDDING_DIMS=1024` and
+creating a pgvector collection at the wrong width.
+
+Validation: targeted server configuration tests 5 passed, Ruff passed, and
+`git diff --check` passed.
+
 ## 2026-09-18T18:00:01+02:00 — Configurable embedding dimensions
 
 Added `MEM0_EMBEDDING_DIMS` (default `1536`) to configure the OpenAI-compatible

@@ -154,7 +154,13 @@ DEFAULT_CONFIG = {
 
 
 set_session_factory(SessionLocal)
-initialize_state(DEFAULT_CONFIG)
+initialize_state(
+    DEFAULT_CONFIG,
+    {
+        "embedder": {"config": {"embedding_dims": EMBEDDING_DIMS}},
+        "vector_store": {"config": {"embedding_model_dims": EMBEDDING_DIMS}},
+    },
+)
 
 
 app = FastAPI(

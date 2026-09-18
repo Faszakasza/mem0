@@ -73,13 +73,15 @@ def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     return merged
 
 
-def initialize_state(default_config: Dict[str, Any]) -> None:
+def initialize_state(default_config: Dict[str, Any], startup_overrides: Dict[str, Any] | None = None) -> None:
     global _current_config, _memory_instance
     with _state_lock:
         _current_config = deepcopy(default_config)
         overrides = _load_overrides()
         if overrides:
             _current_config = _merge_config(_current_config, overrides)
+        if startup_overrides:
+            _current_config = _merge_config(_current_config, startup_overrides)
         _memory_instance = Memory.from_config(_current_config)
 
 

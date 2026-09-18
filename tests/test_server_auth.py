@@ -488,7 +488,7 @@ class TestEmbedderConfigDefaults:
     def _setup(self, _mock_memory):
         self.mock = _mock_memory
 
-    def _load_app_with_embedder_env(self, base_url, api_key, embedding_dims=None):
+    def _load_app_with_embedder_env(self, base_url, api_key, embedding_dims=None, stored_overrides=None):
         """Reload server/main.py under a fully controlled environment.
 
         Uses patch.dict with clear=True so no host environment (e.g. a real
@@ -509,14 +509,15 @@ class TestEmbedderConfigDefaults:
         if embedding_dims is not None:
             env["MEM0_EMBEDDING_DIMS"] = str(embedding_dims)
         with patch.dict(os.environ, env, clear=True):
-            # Reload if a previous test already imported the module, import it
-            # fresh otherwise, so the module body always runs once under the
-            # controlled environment.
-            server_main = sys.modules.get("server.main")
-            if server_main is not None:
-                server_main = importlib.reload(server_main)
-            else:
-                import server.main as server_main
+            with patch("server_state._load_overrides", return_value=stored_overrides or {}):
+                # Reload if a previous test already imported the module, import it
+                # fresh otherwise, so the module body always runs once under the
+                # controlled environment.
+                server_main = sys.modules.get("server.main")
+                if server_main is not None:
+                    server_main = importlib.reload(server_main)
+                else:
+                    import server.main as server_main
         return server_main
 
     def _startup_config(self):
@@ -565,6 +566,20 @@ class TestEmbedderConfigDefaults:
 
     def test_embedding_dimensions_apply_to_embedder_and_vector_store(self):
         self._load_app_with_embedder_env(None, None, 1024)
+        config = self._startup_config()
+        assert config["embedder"]["config"]["embedding_dims"] == 1024
+        assert config["vector_store"]["config"]["embedding_model_dims"] == 1024
+
+    def test_embedding_dimensions_override_saved_configuration(self):
+        self._load_app_with_embedder_env(
+            None,
+            None,
+            1024,
+            {
+                "embedder": {"config": {"embedding_dims": 1536}},
+                "vector_store": {"config": {"embedding_model_dims": 1536}},
+            },
+        )
         config = self._startup_config()
         assert config["embedder"]["config"]["embedding_dims"] == 1024
         assert config["vector_store"]["config"]["embedding_model_dims"] == 1024

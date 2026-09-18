@@ -2,6 +2,19 @@
 
 Session log for workspace work, newest first.
 
+## 2026-09-18 (session 21:25 +02:00) — Persisted dimensions no longer override environment
+
+- Found the root cause: `server_state.initialize_state()` merged persisted
+  `config_overrides` after the environment-derived defaults. A saved `1536`
+  setting therefore replaced `MEM0_EMBEDDING_DIMS=1024` before pgvector
+  initialized its collection.
+- Added startup-only overrides in `server/main.py` so the configured dimensions
+  are applied after persisted settings, without rewriting dashboard settings.
+- Added a regression test with persisted `1536` dimensions and environment
+  dimensions of `1024`.
+- Validation: `TestEmbedderConfigDefaults` 5 passed; Ruff and `git diff --check`
+  passed.
+
 ## 2026-09-18 (session 18:00 +02:00) — Embedding dimension defaults
 
 - Added `MEM0_EMBEDDING_DIMS` with a `1536` default in `server/main.py`.

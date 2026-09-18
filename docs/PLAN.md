@@ -3,7 +3,7 @@
 Status: implemented and validated. The separate endpoint and embedding dimensions
 are configurable through environment defaults; targeted tests and lint pass, and the
 Docker Compose/production-image smoke tests pass.
-Last updated: 2026-09-18T18:00:01+02:00
+Last updated: 2026-09-18T21:25:08+02:00
 
 ## Scope
 
@@ -44,8 +44,9 @@ Embedder key resolution in `server/main.py`, in order:
 Full effective-config chain at startup (`server/server_state.py`):
 
 1. Process env (typically `server/.env`) builds `DEFAULT_CONFIG` at import time.
-2. `initialize_state()` merges DB-persisted `config_overrides` (Settings table) on top, so dashboard runtime changes persist and override `.env` values after a restart.
-3. `POST /configure` (admin-only) re-merges and rebuilds the `Memory` instance at runtime.
+2. `initialize_state()` merges DB-persisted `config_overrides` (Settings table) on top.
+3. Startup reapplies `MEM0_EMBEDDING_DIMS` to the embedder and vector-store dimension, so a stale dashboard override cannot create a pgvector collection at the wrong width.
+4. `POST /configure` (admin-only) re-merges and rebuilds the `Memory` instance at runtime.
 
 Dashboard embedder API key resolution (setup + configuration pages): explicit
 embedder key, else the LLM key when the embedder provider matches the LLM
@@ -78,9 +79,9 @@ existing persisted key unchanged.
 
 ## Validation plan
 
-- Python — done (isolated): `PYTHONPATH=server uv run --no-project --python .venv/bin/python python -m pytest tests/test_server_auth.py::TestEmbedderConfigDefaults -q` — 4 passed. The regression tests run under `patch.dict(os.environ, ..., clear=True)` so host env cannot leak.
+- Python — done (isolated): `TestEmbedderConfigDefaults` — 5 passed, including a saved 1536-dimension override with `MEM0_EMBEDDING_DIMS=1024`. The regression tests run under `patch.dict(os.environ, ..., clear=True)` so host env cannot leak.
 - Python full auth suite — blocked by its pre-existing test harness importing `server.main` before applying per-test auth environment overrides; the focused configuration tests pass.
-- Lint — done: ruff (line length 120) on `server/main.py` and `tests/test_server_auth.py` per the root package toolchain — passed.
+- Lint — done: Ruff on `server/main.py`, `server/server_state.py`, and `tests/test_server_auth.py` — passed.
 - Dashboard — done: `pnpm typecheck` and the production Docker build passed. Repo-wide Prettier still flags only the pre-existing `pnpm-lock.yaml` and `pnpm-workspace.yaml` formatting.
 - Docker — done: Compose API/dashboard/Postgres stack built healthy, migrations reached `006`, configuration assertions passed, logs were clean, and the production image loaded psycopg against libpq 17.11.
 
