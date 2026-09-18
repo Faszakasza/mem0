@@ -80,12 +80,15 @@ export default function SetupPage() {
   const [llmApiKey, setLlmApiKey] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
+  const [embedderBaseUrl, setEmbedderBaseUrl] = useState("");
+  const [embedderApiKey, setEmbedderApiKey] = useState("");
   const [serverHasLlmKey, setServerHasLlmKey] = useState(false);
   const [providers, setProviders] = useState<BundledProviders | null>(null);
   const [initialLlmProvider, setInitialLlmProvider] = useState("");
   const [initialLlmModel, setInitialLlmModel] = useState("");
   const [initialEmbedderProvider, setInitialEmbedderProvider] = useState("");
   const [initialEmbedderModel, setInitialEmbedderModel] = useState("");
+  const [initialEmbedderBaseUrl, setInitialEmbedderBaseUrl] = useState("");
 
   const [apiKey, setApiKey] = useState("");
   const [keyLabel, setKeyLabel] = useState("");
@@ -125,15 +128,18 @@ export default function SetupPage() {
         const llmMod = config?.llm?.config?.model || "";
         const embProv = config?.embedder?.provider || "";
         const embMod = config?.embedder?.config?.model || "";
+        const embUrl = config?.embedder?.config?.openai_base_url || "";
 
         setLlmProvider(llmProv);
         setLlmModel(llmMod);
         setEmbedderProvider(embProv);
         setEmbedderModel(embMod);
+        setEmbedderBaseUrl(embUrl);
         setInitialLlmProvider(llmProv);
         setInitialLlmModel(llmMod);
         setInitialEmbedderProvider(embProv);
         setInitialEmbedderModel(embMod);
+        setInitialEmbedderBaseUrl(embUrl);
         setServerHasLlmKey(!!config?.llm?.config?.api_key);
         setProviders(providersRes.data);
       } catch (err) {
@@ -194,7 +200,9 @@ export default function SetupPage() {
       llmProvider !== initialLlmProvider ||
       llmModel !== initialLlmModel ||
       embedderProvider !== initialEmbedderProvider ||
-      embedderModel !== initialEmbedderModel;
+      embedderModel !== initialEmbedderModel ||
+      embedderBaseUrl !== initialEmbedderBaseUrl ||
+      !!embedderApiKey;
 
     if (!dirty) {
       setStep(2);
@@ -212,7 +220,11 @@ export default function SetupPage() {
         provider: embedderProvider,
         model: embedderModel,
         apiKey:
-          llmApiKey && embedderProvider === llmProvider ? llmApiKey : undefined,
+          embedderApiKey ||
+          (llmApiKey && embedderProvider === llmProvider
+            ? llmApiKey
+            : undefined),
+        baseUrl: embedderBaseUrl,
       });
 
       const payload: Record<string, unknown> = { version: "v1.1" };
@@ -222,10 +234,12 @@ export default function SetupPage() {
       await api.post(MEMORY_ENDPOINTS.CONFIGURE, payload);
       if (llmApiKey) setServerHasLlmKey(true);
       setLlmApiKey("");
+      setEmbedderApiKey("");
       setInitialLlmProvider(llmProvider);
       setInitialLlmModel(llmModel);
       setInitialEmbedderProvider(embedderProvider);
       setInitialEmbedderModel(embedderModel);
+      setInitialEmbedderBaseUrl(embedderBaseUrl);
       setStep(2);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to save configuration"));
@@ -501,6 +515,38 @@ export default function SetupPage() {
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="setup-embedder-api-key">
+                      Embedder API Key
+                    </Label>
+                    <Input
+                      id="setup-embedder-api-key"
+                      type="password"
+                      value={embedderApiKey}
+                      onChange={(e) => setEmbedderApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="setup-embedder-base-url">
+                      OpenAI-compatible API URL
+                    </Label>
+                    <Input
+                      id="setup-embedder-base-url"
+                      value={embedderBaseUrl}
+                      onChange={(e) => setEmbedderBaseUrl(e.target.value)}
+                      placeholder="http://embedding:8000/v1"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-onSurface-default-tertiary">
+                  The OpenAI-compatible API URL is used for embeddings only and
+                  does not change the LLM provider.
+                </p>
 
                 <p className="text-xs text-onSurface-default-tertiary">
                   Need another provider? Install its Python package and rebuild

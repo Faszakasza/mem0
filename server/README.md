@@ -106,6 +106,24 @@ Wire the command into cron or a systemd timer in production. The `created_at` co
 - API: `http://localhost:8888`
 - OpenAPI docs: `http://localhost:8888/docs`
 
+## Separate embedder endpoint
+
+By default, both the LLM and the embedder use `OPENAI_API_KEY`. To point **only the embedder** at a separate OpenAI-compatible endpoint (for example, a local model server), set these in `.env`:
+
+```env
+MEM0_EMBEDDER_BASE_URL=http://<embedder-host>:8080/v1
+MEM0_EMBEDDER_API_KEY=local
+```
+
+- The endpoint must implement the OpenAI-compatible `POST /v1/embeddings` route, and the base URL must end in `/v1`.
+- These variables only change the embedder. LLM traffic remains configured separately through `OPENAI_API_KEY`.
+- `MEM0_EMBEDDER_API_KEY=local` is fine for an unauthenticated endpoint. If you omit the key while the base URL is set, the server uses the same `local` sentinel, so `OPENAI_API_KEY` is never sent to that endpoint.
+- Set `MEM0_DEFAULT_EMBEDDER_MODEL` to the model name your endpoint serves.
+- Docker reachability: from inside the API container, `localhost` is the container itself, not the host. Use a Compose service hostname (if the embedder runs on the same Docker network) or another host-reachable address visible from the container (e.g. the host's LAN IP, or `host.docker.internal` where supported).
+- If the endpoint's model produces a different embedding dimension, point `POSTGRES_COLLECTION_NAME` at a new collection and re-embed your existing memories. pgvector collections are created with a fixed width and are not migrated automatically.
+
+After editing `.env`, recreate the API container to apply the change: `cd server && docker compose up -d --force-recreate mem0` (or `make up`).
+
 ## Dashboard
 
 Once logged in, the dashboard exposes:

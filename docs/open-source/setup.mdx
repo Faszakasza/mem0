@@ -35,6 +35,8 @@ Copy `server/.env.example` to `server/.env` and fill in the required values. The
 | Variable | Required | Purpose |
 |---|---|---|
 | `OPENAI_API_KEY` | Yes | Default LLM and embedder provider. |
+| `MEM0_EMBEDDER_BASE_URL` | Optional | Point only the embedder at an OpenAI-compatible endpoint. See [Separate embedder endpoint](#separate-embedder-endpoint) below. |
+| `MEM0_EMBEDDER_API_KEY` | Optional | API key for that endpoint. Use `local` for an unauthenticated endpoint. |
 | `JWT_SECRET` | Yes | Signs access and refresh tokens. Use a long random value. A missing secret causes auth endpoints to return `500`. |
 | `ADMIN_API_KEY` | Optional | Legacy shared admin key. Kept for back-compat; prefer per-user keys for new setups. |
 | `AUTH_DISABLED` | Optional | `true` turns off auth for local development only. Never enable in production. |
@@ -44,6 +46,22 @@ Copy `server/.env.example` to `server/.env` and fill in the required values. The
 <Tip>
   Generate a `JWT_SECRET` with `openssl rand -base64 48` or `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 </Tip>
+
+### Separate embedder endpoint
+
+By default, both the LLM and the embedder use `OPENAI_API_KEY`. To point **only the embedder** at a separate OpenAI-compatible endpoint (for example, a local model server), add these to `server/.env`:
+
+```env
+MEM0_EMBEDDER_BASE_URL=http://<embedder-host>:8080/v1
+MEM0_EMBEDDER_API_KEY=local
+```
+
+- The endpoint must implement the OpenAI-compatible `POST /v1/embeddings` route, and the base URL must end in `/v1`.
+- These variables only change the embedder. LLM traffic remains configured separately through `OPENAI_API_KEY`.
+- `MEM0_EMBEDDER_API_KEY=local` is fine for an unauthenticated endpoint. If you omit the key while the base URL is set, the server already uses a `local` sentinel, so `OPENAI_API_KEY` is never sent there.
+- Set `MEM0_DEFAULT_EMBEDDER_MODEL` to the model name your endpoint serves.
+- From inside the API container, `localhost` is the container itself, not the host machine. Use a Compose service hostname (if the embedder runs on the same Docker network) or another host-reachable address visible from the container (e.g. the host's LAN IP, or `host.docker.internal` where supported).
+- If the endpoint's model produces a different embedding dimension, point `POSTGRES_COLLECTION_NAME` at a new collection and re-embed your existing memories. pgvector collections are created with a fixed width and are not migrated automatically.
 
 ---
 
@@ -97,7 +115,7 @@ On a fresh install the dashboard redirects to `/setup`. Each step submits on Ent
 
 **1. Create the admin account.** Name, email, password. This account becomes the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin.
 
-**2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart. The dashboard intentionally does not let you change provider secrets at runtime.
+**2. Review the effective config.** Shows the LLM and embedder the server is currently running with. You can adjust providers, models, and API keys right here, including pointing the embedder at a separate endpoint (see [Separate embedder endpoint](#separate-embedder-endpoint)). Configuration changes are admin-only: they apply at runtime, persist to the app database, and override the values from your `.env` after a restart. Provider secrets are redacted when the config is read back, and leaving a key field blank leaves the existing persisted key unchanged.
 
 **3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately. The server stores only the prefix and a bcrypt hash.
 

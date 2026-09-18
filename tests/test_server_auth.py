@@ -6,11 +6,15 @@ round-trip) covering:
   - Auth enabled mode (ADMIN_API_KEY set)
   - Edge cases: empty keys, near-miss keys, timing-safe comparison, header
     casing, response headers, startup logging, and full CRUD flows through auth.
+  - Embedder endpoint/key defaults (MEM0_EMBEDDER_BASE_URL / MEM0_EMBEDDER_API_KEY)
+    flowing into the config passed to Memory.from_config.
 """
 
 import importlib
 import logging
 import os
+import sys
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -467,6 +471,94 @@ class TestAuthEdgeCases:
         client = TestClient(app)
         schema = client.get("/openapi.json").json()
         assert "Authentication" in schema.get("info", {}).get("description", "")
+
+
+# ---------------------------------------------------------------------------
+# Embedder config defaults
+# ---------------------------------------------------------------------------
+
+class TestEmbedderConfigDefaults:
+    """The independently configured embedder endpoint/key env vars must flow into
+    the config passed to Memory.from_config at startup, and OPENAI_API_KEY must
+    never be sent to a locally configured embedder endpoint."""
+
+    OPENAI_KEY = "fake-openai-key"
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, _mock_memory):
+        self.mock = _mock_memory
+
+    def _load_app_with_embedder_env(self, base_url, api_key):
+        """Reload server/main.py under a fully controlled environment.
+
+        Uses patch.dict with clear=True so no host environment (e.g. a real
+        MEM0_EMBEDDER_* or OPENAI_API_KEY) can leak into the reload."""
+        env = os.environ.copy()
+        env.pop("MEM0_EMBEDDER_BASE_URL", None)
+        env.pop("MEM0_EMBEDDER_API_KEY", None)
+        env["OPENAI_API_KEY"] = self.OPENAI_KEY
+        # main.py refuses to import without JWT_SECRET (or AUTH_DISABLED=true)
+        env["JWT_SECRET"] = "test-jwt-secret-0123456789"
+        env["ADMIN_API_KEY"] = "embedder-config-test-key"
+        env["MEM0_TELEMETRY"] = "false"
+        if base_url is not None:
+            env["MEM0_EMBEDDER_BASE_URL"] = base_url
+        if api_key is not None:
+            env["MEM0_EMBEDDER_API_KEY"] = api_key
+        with patch.dict(os.environ, env, clear=True):
+            # Reload if a previous test already imported the module, import it
+            # fresh otherwise, so the module body always runs once under the
+            # controlled environment.
+            server_main = sys.modules.get("server.main")
+            if server_main is not None:
+                server_main = importlib.reload(server_main)
+            else:
+                import server.main as server_main
+        return server_main
+
+    def _startup_config(self):
+        """The config dict initialize_state() passed to Memory.from_config.
+
+        from_config is patched to a MagicMock by the _mock_memory fixture;
+        the cast only tells static analysis that.
+        """
+        from mem0 import Memory
+
+        from_config = cast(MagicMock, Memory.from_config)
+        assert from_config.call_count == 1
+        return from_config.call_args.args[0]
+
+    def test_base_url_without_key_uses_local_sentinel(self):
+        """With MEM0_EMBEDDER_BASE_URL set and no embedder key, the embedder gets
+        the URL plus the 'local' sentinel so OPENAI_API_KEY is never sent to it,
+        while the LLM still gets OPENAI_API_KEY and no embedder URL."""
+        self._load_app_with_embedder_env("http://embedder.local:8080", None)
+        config = self._startup_config()
+        embedder = config["embedder"]["config"]
+        llm = config["llm"]["config"]
+        assert embedder["openai_base_url"] == "http://embedder.local:8080"
+        assert embedder["api_key"] == "local"
+        assert llm["api_key"] == self.OPENAI_KEY
+        assert llm.get("openai_base_url") is None
+
+    def test_explicit_embedder_key_wins_over_sentinel(self):
+        """MEM0_EMBEDDER_API_KEY, when set, wins over the 'local' sentinel."""
+        self._load_app_with_embedder_env("http://embedder.local:8080", "embedder-key-123")
+        config = self._startup_config()
+        embedder = config["embedder"]["config"]
+        assert embedder["openai_base_url"] == "http://embedder.local:8080"
+        assert embedder["api_key"] == "embedder-key-123"
+        assert config["llm"]["config"]["api_key"] == self.OPENAI_KEY
+
+    def test_no_embedder_url_or_key_falls_back_to_openai_key(self):
+        """With no embedder endpoint/key configured, the embedder keeps using
+        OPENAI_API_KEY and gets no base URL."""
+        self._load_app_with_embedder_env(None, None)
+        config = self._startup_config()
+        embedder = config["embedder"]["config"]
+        assert embedder["api_key"] == self.OPENAI_KEY
+        assert embedder.get("openai_base_url") is None
+        assert config["llm"]["config"]["api_key"] == self.OPENAI_KEY
 
 
 # ---------------------------------------------------------------------------

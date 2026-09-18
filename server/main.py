@@ -113,6 +113,10 @@ POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+EMBEDDER_BASE_URL = os.environ.get("MEM0_EMBEDDER_BASE_URL")
+# Separate endpoint for the embedder: an explicit key wins; with a base URL set and no key,
+# a harmless sentinel is used so OPENAI_API_KEY is never sent to the local service.
+EMBEDDER_API_KEY = os.environ.get("MEM0_EMBEDDER_API_KEY") or (OPENAI_API_KEY if not EMBEDDER_BASE_URL else "local")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-5-mini")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
@@ -134,7 +138,14 @@ DEFAULT_CONFIG = {
         "provider": "openai",
         "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": EMBEDDER_API_KEY,
+            "openai_base_url": EMBEDDER_BASE_URL,
+            "model": DEFAULT_EMBEDDER_MODEL,
+        },
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 

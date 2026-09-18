@@ -37,6 +37,8 @@ export default function ConfigurationPage() {
   const [llmApiKey, setLlmApiKey] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
+  const [embedderBaseUrl, setEmbedderBaseUrl] = useState("");
+  const [embedderApiKey, setEmbedderApiKey] = useState("");
 
   const { data: config, isLoading: isPrefilling } = useApiQuery(
     async () => {
@@ -66,6 +68,9 @@ export default function ConfigurationPage() {
     setEmbedderModel(
       (current) => current || config.embedder?.config?.model || "",
     );
+    setEmbedderBaseUrl(
+      (current) => current || config.embedder?.config?.openai_base_url || "",
+    );
   }, [config]);
 
   const handleSave = async () => {
@@ -80,6 +85,8 @@ export default function ConfigurationPage() {
       const embedder = buildProviderConfig({
         provider: embedderProvider,
         model: embedderModel,
+        apiKey: embedderApiKey,
+        baseUrl: embedderBaseUrl,
       });
 
       const newConfig: Record<string, unknown> = {
@@ -204,6 +211,31 @@ export default function ConfigurationPage() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">API Key</Label>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={embedderApiKey}
+                onChange={(e) => setEmbedderApiKey(e.target.value)}
+                disabled={!isAdmin}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">OpenAI-compatible API URL</Label>
+              <Input
+                placeholder="http://embedding:8000/v1"
+                value={embedderBaseUrl}
+                onChange={(e) => setEmbedderBaseUrl(e.target.value)}
+                disabled={!isAdmin}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-onSurface-default-tertiary">
+            The OpenAI-compatible API URL is used for embeddings only and does
+            not change the LLM provider.
+          </p>
         </CardContent>
       </Card>
 
