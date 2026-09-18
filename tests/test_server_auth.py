@@ -488,7 +488,7 @@ class TestEmbedderConfigDefaults:
     def _setup(self, _mock_memory):
         self.mock = _mock_memory
 
-    def _load_app_with_embedder_env(self, base_url, api_key):
+    def _load_app_with_embedder_env(self, base_url, api_key, embedding_dims=None):
         """Reload server/main.py under a fully controlled environment.
 
         Uses patch.dict with clear=True so no host environment (e.g. a real
@@ -496,6 +496,7 @@ class TestEmbedderConfigDefaults:
         env = os.environ.copy()
         env.pop("MEM0_EMBEDDER_BASE_URL", None)
         env.pop("MEM0_EMBEDDER_API_KEY", None)
+        env.pop("MEM0_EMBEDDING_DIMS", None)
         env["OPENAI_API_KEY"] = self.OPENAI_KEY
         # main.py refuses to import without JWT_SECRET (or AUTH_DISABLED=true)
         env["JWT_SECRET"] = "test-jwt-secret-0123456789"
@@ -505,6 +506,8 @@ class TestEmbedderConfigDefaults:
             env["MEM0_EMBEDDER_BASE_URL"] = base_url
         if api_key is not None:
             env["MEM0_EMBEDDER_API_KEY"] = api_key
+        if embedding_dims is not None:
+            env["MEM0_EMBEDDING_DIMS"] = str(embedding_dims)
         with patch.dict(os.environ, env, clear=True):
             # Reload if a previous test already imported the module, import it
             # fresh otherwise, so the module body always runs once under the
@@ -559,6 +562,12 @@ class TestEmbedderConfigDefaults:
         assert embedder["api_key"] == self.OPENAI_KEY
         assert embedder.get("openai_base_url") is None
         assert config["llm"]["config"]["api_key"] == self.OPENAI_KEY
+
+    def test_embedding_dimensions_apply_to_embedder_and_vector_store(self):
+        self._load_app_with_embedder_env(None, None, 1024)
+        config = self._startup_config()
+        assert config["embedder"]["config"]["embedding_dims"] == 1024
+        assert config["vector_store"]["config"]["embedding_model_dims"] == 1024
 
 
 # ---------------------------------------------------------------------------

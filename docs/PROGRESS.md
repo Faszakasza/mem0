@@ -2,6 +2,17 @@
 
 Session log for workspace work, newest first.
 
+## 2026-09-18 (session 18:00 +02:00) — Embedding dimension defaults
+
+- Added `MEM0_EMBEDDING_DIMS` with a `1536` default in `server/main.py`.
+- Applied the value to both embedder `embedding_dims` and pgvector
+  `embedding_model_dims`.
+- Updated `.env.example`, server README, and self-hosted setup documentation with
+  a `1024`-dimension local model example and new-collection requirement.
+- Added a regression test for a `1024` environment override.
+- Validation: `TestEmbedderConfigDefaults` 4 passed; Ruff and `git diff --check`
+  passed.
+
 ## 2026-09-18 (session 15:49 +02:00) — Validation status update
 
 **Validation completed in this sandbox** (all against the current working tree):

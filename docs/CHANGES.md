@@ -2,6 +2,16 @@
 
 Log of non-trivial changes to this workspace, newest first.
 
+## 2026-09-18T18:00:01+02:00 — Configurable embedding dimensions
+
+Added `MEM0_EMBEDDING_DIMS` (default `1536`) to configure the OpenAI-compatible
+embedder's `embedding_dims` and pgvector's `embedding_model_dims` from one value.
+Documented using a new collection when changing dimensions and added a regression
+test proving a `1024` override reaches both components.
+
+Validation: targeted embedder defaults tests 4 passed, Ruff passed, and
+`git diff --check` passed.
+
 ## 2026-09-18T15:26:39+02:00 — Separate embedder endpoint for the self-hosted server
 
 Added `MEM0_EMBEDDER_BASE_URL` / `MEM0_EMBEDDER_API_KEY` so the self-hosted

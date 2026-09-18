@@ -120,6 +120,7 @@ EMBEDDER_API_KEY = os.environ.get("MEM0_EMBEDDER_API_KEY") or (OPENAI_API_KEY if
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-5-mini")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+EMBEDDING_DIMS = int(os.environ.get("MEM0_EMBEDDING_DIMS", "1536"))
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -132,6 +133,7 @@ DEFAULT_CONFIG = {
             "user": POSTGRES_USER,
             "password": POSTGRES_PASSWORD,
             "collection_name": POSTGRES_COLLECTION_NAME,
+            "embedding_model_dims": EMBEDDING_DIMS,
         },
     },
     "llm": {
@@ -144,6 +146,7 @@ DEFAULT_CONFIG = {
             "api_key": EMBEDDER_API_KEY,
             "openai_base_url": EMBEDDER_BASE_URL,
             "model": DEFAULT_EMBEDDER_MODEL,
+            "embedding_dims": EMBEDDING_DIMS,
         },
     },
     "history_db_path": HISTORY_DB_PATH,

@@ -37,6 +37,7 @@ Copy `server/.env.example` to `server/.env` and fill in the required values. The
 | `OPENAI_API_KEY` | Yes | Default LLM and embedder provider. |
 | `MEM0_EMBEDDER_BASE_URL` | Optional | Point only the embedder at an OpenAI-compatible endpoint. See [Separate embedder endpoint](#separate-embedder-endpoint) below. |
 | `MEM0_EMBEDDER_API_KEY` | Optional | API key for that endpoint. Use `local` for an unauthenticated endpoint. |
+| `MEM0_EMBEDDING_DIMS` | Optional | Embedding output width used by both the embedder and pgvector. Defaults to `1536`. |
 | `JWT_SECRET` | Yes | Signs access and refresh tokens. Use a long random value. A missing secret causes auth endpoints to return `500`. |
 | `ADMIN_API_KEY` | Optional | Legacy shared admin key. Kept for back-compat; prefer per-user keys for new setups. |
 | `AUTH_DISABLED` | Optional | `true` turns off auth for local development only. Never enable in production. |
@@ -54,14 +55,17 @@ By default, both the LLM and the embedder use `OPENAI_API_KEY`. To point **only 
 ```env
 MEM0_EMBEDDER_BASE_URL=http://<embedder-host>:8080/v1
 MEM0_EMBEDDER_API_KEY=local
+MEM0_DEFAULT_EMBEDDER_MODEL=Qwen3-Embedding-0.6B
+MEM0_EMBEDDING_DIMS=1024
+POSTGRES_COLLECTION_NAME=memories_qwen3_1024
 ```
 
 - The endpoint must implement the OpenAI-compatible `POST /v1/embeddings` route, and the base URL must end in `/v1`.
 - These variables only change the embedder. LLM traffic remains configured separately through `OPENAI_API_KEY`.
 - `MEM0_EMBEDDER_API_KEY=local` is fine for an unauthenticated endpoint. If you omit the key while the base URL is set, the server already uses a `local` sentinel, so `OPENAI_API_KEY` is never sent there.
-- Set `MEM0_DEFAULT_EMBEDDER_MODEL` to the model name your endpoint serves.
+- Set `MEM0_DEFAULT_EMBEDDER_MODEL` to the model name your endpoint serves and `MEM0_EMBEDDING_DIMS` to its output width. The latter configures both the embedder and pgvector.
 - From inside the API container, `localhost` is the container itself, not the host machine. Use a Compose service hostname (if the embedder runs on the same Docker network) or another host-reachable address visible from the container (e.g. the host's LAN IP, or `host.docker.internal` where supported).
-- If the endpoint's model produces a different embedding dimension, point `POSTGRES_COLLECTION_NAME` at a new collection and re-embed your existing memories. pgvector collections are created with a fixed width and are not migrated automatically.
+- If the endpoint's model produces a different embedding dimension, point `POSTGRES_COLLECTION_NAME` at a new collection and re-embed your existing memories. pgvector collections are created with a fixed width and are not migrated automatically. The default dimension is `1536`.
 
 ---
 
